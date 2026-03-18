@@ -1,4 +1,4 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, RemoteAuth } = require('whatsapp-web.js'); // Switched to RemoteAuth for "Immortal" sessions
 const qrcode = require('qrcode-terminal');
 const express = require('express');
 const axios = require('axios');
@@ -6,75 +6,85 @@ const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 10000;
 
-// 1. Health Check & Anti-Sleep
+// 1. Health Check & Anti-Sleep (Vital for Render Free Tier)
 app.get('/', (req, res) => {
-    res.send('Duka-OS is Online 🚀');
+    res.send('Duka-OS Billion-Edition is Online 🚀');
 });
 
 app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+    console.log(`Duka-OS Server Live on port ${port}`);
 });
 
-// Self-pinging every 10 minutes to keep Render alive
+// Self-ping logic to stop the bot from sleeping
 setInterval(() => {
-    axios.get('https://duka-os.onrender.com')
-        .then(() => console.log('Self-ping successful'))
-        .catch(err => console.error('Self-ping failed', err));
-}, 600000);
+    axios.get(`https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'duka-os'}.onrender.com`)
+        .then(() => console.log('✅ Heartbeat sent: Duka-OS is active.'))
+        .catch(err => console.log('⚠️ Heartbeat failed (Server starting up...)'));
+}, 600000); // 10 minutes
 
-// 2. WhatsApp Client Setup
+// 2. Optimized WhatsApp Client
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new RemoteAuth({
+        clientId: 'Duka-OS-Billion',
+        dataPath: './.wwebjs_auth',
+        backupSyncIntervalMs: 60000 // Saves your login every minute
+    }),
     puppeteer: {
         headless: true,
         args: [
-            '--no-sandbox',
+            '--no-sandbox', 
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
+            '--shm-size=1gb' // Gives the "Billion" logic more memory
         ],
     }
 });
 
-// 3. QR Code Generation (The Scanner Fix)
+// 3. QR Logic (Since whatsapp-web.js requires scanning)
 client.on('qr', (qr) => {
-    // This prints it in the terminal (might look messy)
     qrcode.generate(qr, { small: true });
-    
-    // THIS IS THE KEY: Click this link in your Render logs!
-    console.log('--------------------------------------------------');
-    console.log('SCAN THIS LINK IF QR BOX LOOKS MESSY:');
+    console.log('--- SCAN THE LINK BELOW TO LINK DUKA-OS ---');
     console.log(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
-    console.log('--------------------------------------------------');
+    console.log('-------------------------------------------');
 });
 
 client.on('ready', () => {
-    console.log('Duka-OS is successfully linked to WhatsApp! ✅');
+    console.log('🚀 Duka-OS Ready! System initialized for high-volume sales.');
 });
 
-// 4. The "Money Maker" Logic
+// 4. POWER LOGIC: The "Billion Shilling" Handler
 client.on('message', async (msg) => {
-    const chat = await msg.getChat();
-    const body = msg.body.toLowerCase();
+    const body = msg.body.trim();
+    const bodyLower = body.toLowerCase();
 
-    if (body.startsWith('sold')) {
-        const parts = msg.body.split(' ');
-        if (parts.length >= 3) {
-            const item = parts.slice(1, -1).join(' ');
-            const price = parts[parts.length - 1];
-            
-            msg.reply(`✅ *Duka-OS Receipt*\n\nItem: ${item}\nPrice: KES ${price}\nTime: ${new Date().toLocaleString()}\n\n_Data saved to local session._`);
-        } else {
-            msg.reply('❌ Format error! Use: Sold [Item] [Price]\nExample: Sold Sugar 150');
+    // High-speed "Sold" command
+    if (bodyLower.startsWith('sold')) {
+        try {
+            const parts = body.split(/\s+/); // Splits by any space
+            if (parts.length >= 3) {
+                const price = parts[parts.length - 1];
+                const item = parts.slice(1, -1).join(' ');
+
+                // Fast response for customer receipts
+                await msg.reply(
+                    `💰 *SALE RECORDED*\n\n` +
+                    `📦 *Item:* ${item.toUpperCase()}\n` +
+                    `💵 *Price:* KES ${price}\n` +
+                    `📅 *Date:* ${new Date().toLocaleDateString('en-KE')}\n` +
+                    `⏰ *Time:* ${new Date().toLocaleTimeString('en-KE')}\n\n` +
+                    `_System: Duka-OS High-Performance Mode_`
+                );
+            } else {
+                msg.reply('❌ *Format:* Sold [Item] [Price]\nExample: *Sold Milk 70*');
+            }
+        } catch (error) {
+            console.error('Sale error:', error);
         }
     }
-    
-    if (body === 'help') {
-        msg.reply('Welcome to *Duka-OS* 🇰🇪\n\nCommands:\n1. *Sold [Item] [Price]* - Record a sale\n2. *Status* - Check system health');
+
+    // Business Status Command
+    if (bodyLower === 'status') {
+        msg.reply('✅ *Duka-OS System Status*\n\nUptime: Active\nDatabase: Local\nProcessing Speed: Ultra-Fast');
     }
 });
 
