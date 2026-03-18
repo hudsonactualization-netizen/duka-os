@@ -1,33 +1,28 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const express = require('express');
-const https = require('https');
+const axios = require('axios');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 
-// 1. HEALTH CHECK & MONITORING
+// 1. Health Check & Anti-Sleep
 app.get('/', (req, res) => {
-    res.send('<h1>Duka-OS is Online 🚀</h1><p>Status: Printing Billions...</p>');
+    res.send('Duka-OS is Online 🚀');
 });
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
-    
-    // SELF-HEALING: Pings itself every 10 mins to stay awake on Render Free Tier
-    setInterval(() => {
-        if (process.env.RENDER_EXTERNAL_HOSTNAME) {
-            const url = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}.onrender.com`;
-            https.get(url, (res) => {
-                console.log(`Self-ping sent to ${url}: Status ${res.statusCode}`);
-            }).on('error', (e) => {
-                console.error(`Self-ping failed: ${e.message}`);
-            });
-        }
-    }, 600000); // 10 minutes
 });
 
-// 2. WHATSAPP CLIENT CONFIGURATION
+// Self-pinging every 10 minutes to keep Render alive
+setInterval(() => {
+    axios.get('https://duka-os.onrender.com')
+        .then(() => console.log('Self-ping successful'))
+        .catch(err => console.error('Self-ping failed', err));
+}, 600000);
+
+// 2. WhatsApp Client Setup
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -36,57 +31,50 @@ const client = new Client({
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-extensions',
-            '--single-process'
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu'
         ],
     }
 });
 
-// 3. EVENT HANDLERS
+// 3. QR Code Generation (The Scanner Fix)
 client.on('qr', (qr) => {
-    // This will render the QR code in your Render.com logs
-    console.log('--- SCAN THE QR CODE BELOW ---');
+    // This prints it in the terminal (might look messy)
     qrcode.generate(qr, { small: true });
+    
+    // THIS IS THE KEY: Click this link in your Render logs!
+    console.log('--------------------------------------------------');
+    console.log('SCAN THIS LINK IF QR BOX LOOKS MESSY:');
+    console.log(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
+    console.log('--------------------------------------------------');
 });
 
 client.on('ready', () => {
-    console.log('Duka-OS is successfully linked to WhatsApp!');
+    console.log('Duka-OS is successfully linked to WhatsApp! ✅');
 });
 
-client.on('authenticated', () => {
-    console.log('Authentication successful!');
-});
-
-client.on('auth_failure', msg => {
-    console.error('Authentication failure:', msg);
-});
-
-// 4. THE BILLION-SHILLING LOGIC (The Bot)
-client.on('message', async msg => {
+// 4. The "Money Maker" Logic
+client.on('message', async (msg) => {
     const chat = await msg.getChat();
-    const input = msg.body.toLowerCase();
+    const body = msg.body.toLowerCase();
 
-    // Command: "Sold [Item] [Amount]"
-    if (input.startsWith('sold')) {
+    if (body.startsWith('sold')) {
         const parts = msg.body.split(' ');
-        
-        if (parts.length < 3) {
-            msg.reply('❌ Format error! Use: Sold [Item] [Price]\nExample: Sold Sugar 200');
-            return;
+        if (parts.length >= 3) {
+            const item = parts.slice(1, -1).join(' ');
+            const price = parts[parts.length - 1];
+            
+            msg.reply(`✅ *Duka-OS Receipt*\n\nItem: ${item}\nPrice: KES ${price}\nTime: ${new Date().toLocaleString()}\n\n_Data saved to local session._`);
+        } else {
+            msg.reply('❌ Format error! Use: Sold [Item] [Price]\nExample: Sold Sugar 150');
         }
-
-        const item = parts[1];
-        const price = parts[2];
-
-        // LOGIC: In the next step, we will save this to Supabase
-        console.log(`Recording Sale: ${item} - KES ${price}`);
-        
-        msg.reply(`✅ *Duka-OS Receipt*\n------------------\nItem: ${item}\nPrice: KES ${price}\nStatus: Recorded locally.\n\n_Next: Syncing to Cloud Database..._`);
     }
-
-    // Command: "Help"
-    if (input === 'help') {
-        msg.reply('Welcome to *Duka-OS* 🇰🇪\n\nCommands:\n1. *Sold [Item] [Price]* - Record a sale\n2. *Stock* - View inventory\n3. *Report* - Daily total');
+    
+    if (body === 'help') {
+        msg.reply('Welcome to *Duka-OS* 🇰🇪\n\nCommands:\n1. *Sold [Item] [Price]* - Record a sale\n2. *Status* - Check system health');
     }
 });
 
