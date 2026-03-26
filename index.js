@@ -6,101 +6,82 @@ const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 10000;
 
-// --- DATABASE & TRACKING ---
+// --- DATABASE ---
 let dailySales = [];
-let lastSummaryDate = new Date().toLocaleDateString();
+let lastSummaryDate = new Date().toLocaleDateString('en-KE');
 
-// --- SERVER SETUP ---
-app.get('/', (req, res) => {
-    res.send('Duka-OS Billion-Edition: ONLINE 🚀');
-});
+// --- SERVER ---
+app.get('/', (req, res) => res.send('Duka-OS Lean Edition: Active 🚀'));
+app.listen(port, () => console.log(`Listening on ${port}`));
 
-app.listen(port, () => {
-    console.log(`Server live on port ${port}`);
-});
-
-// Anti-Sleep Heartbeat
-setInterval(() => {
-    axios.get(`https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'duka-os'}.onrender.com`).catch(() => {});
-}, 600000);
-
-// --- WHATSAPP CLIENT ---
+// --- LEAN WHATSAPP CLIENT (Memory Optimized) ---
 const client = new Client({
-    authStrategy: new LocalAuth(), // Best for Render if you scan quickly
+    authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process', // Crucial for low RAM
+            '--disable-gpu',
+            '--disable-datasaver-lite',
+            '--disable-infobars',
+            '--disable-extensions'
+        ],
     }
 });
 
-// --- QR GENERATION ---
+// --- QR LOGIC ---
 client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
-    console.log('--- SCAN THE LINK BELOW ---');
-    console.log(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`);
+    console.log(`\n--- SCAN LINK ---\nhttps://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}\n----------------\n`);
 });
 
 client.on('ready', () => {
-    console.log('✅ Duka-OS Connected! Ready to print billions.');
+    console.log('✅ Duka-OS Connected & Optimized.');
 });
 
-// --- THE "MONEY MAKER" LOGIC ---
+// --- REVENUE LOGIC ---
 client.on('message', async (msg) => {
-    const body = msg.body.trim();
-    const bodyLower = body.toLowerCase();
+    const body = msg.body.trim().toLowerCase();
+    const today = new Date().toLocaleDateString('en-KE');
 
-    // Check if we need to reset the daily counter (Midnight Reset)
-    const today = new Date().toLocaleDateString();
     if (today !== lastSummaryDate) {
         dailySales = [];
         lastSummaryDate = today;
     }
 
-    // 1. RECORD SALE: "Sold Sugar 150"
-    if (bodyLower.startsWith('sold')) {
-        const parts = body.split(/\s+/);
+    if (body.startsWith('sold')) {
+        const parts = msg.body.split(/\s+/);
         if (parts.length >= 3) {
-            const price = parseFloat(parts[parts.length - 1].replace(/[^0-9.]/g, ''));
+            const priceStr = parts[parts.length - 1].replace(/[^0-9.]/g, '');
+            const price = parseFloat(priceStr);
             const item = parts.slice(1, -1).join(' ');
 
             if (!isNaN(price)) {
-                dailySales.push({ item, price, time: new Date().toLocaleTimeString() });
-                
-                await msg.reply(
-                    `✅ *RECEIPT RECORDED*\n\n` +
-                    `🛒 *Item:* ${item.toUpperCase()}\n` +
-                    `💰 *Price:* KES ${price.toLocaleString()}\n` +
-                    `📅 *Date:* ${today}\n\n` +
-                    `_Type *Summary* to see today's total._`
-                );
+                dailySales.push({ item, price });
+                msg.reply(`✅ *RECORDED*\n${item.toUpperCase()}: KES ${price.toLocaleString()}`);
             }
-        } else {
-            msg.reply('❌ Use: *Sold [Item] [Price]*\nExample: Sold Bread 65');
         }
     }
 
-    // 2. DAILY SUMMARY: "Summary"
-    if (bodyLower === 'summary') {
-        if (dailySales.length === 0) {
-            return msg.reply('📭 No sales recorded for today yet.');
-        }
-
+    if (body === 'summary') {
+        if (dailySales.length === 0) return msg.reply('📭 No sales today.');
         let total = 0;
-        let report = `📊 *DAILY SALES SUMMARY*\n_Date: ${today}_\n\n`;
-
-        dailySales.forEach((sale, index) => {
-            report += `${index + 1}. ${sale.item}: KES ${sale.price}\n`;
-            total += sale.price;
+        let report = `📊 *TOTALS: ${today}*\n\n`;
+        dailySales.forEach((s, i) => {
+            report += `${i + 1}. ${s.item}: ${s.price}\n`;
+            total += s.price;
         });
-
-        report += `\n━━━━━━━━━━━━━━━\n*TOTAL REVENUE: KES ${total.toLocaleString()}* 💸\n━━━━━━━━━━━━━━━`;
+        report += `\n*TOTAL: KES ${total.toLocaleString()}*`;
         msg.reply(report);
-    }
-
-    // 3. STATUS
-    if (bodyLower === 'status') {
-        msg.reply('🚀 *Duka-OS Status: Ultra-Active*\nAll systems operational.');
     }
 });
 
+// Error handling to prevent total crash
+client.on('auth_failure', () => console.error('Auth failed, restart needed.'));
 client.initialize();
